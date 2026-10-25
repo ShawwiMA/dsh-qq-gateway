@@ -1,0 +1,19 @@
+node_modules/
+npm-debug.log*
+*.log
+
+# 本地运行产物 / 证据 / 备份（仓库里不放）
+*-evidence*.json
+m4-status-raw.json
+m*-snapshot-*.tar.gz
+*.tgz
+backup/
+allow-list.json
+qq-gateway-mute.json
+docs/*.bak*
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

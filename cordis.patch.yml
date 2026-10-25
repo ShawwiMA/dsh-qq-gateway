@@ -1,0 +1,20 @@
+# ============================================================================
+# dsh-qq-gateway —— bundle 挂载声明
+# ============================================================================
+# 安装：dsh plugin --profile <profile> add dsh-qq-gateway
+# 装好后 bundle 层自动应用本文件，把 id=qq-gateway 的插件条目插进 profile。
+#
+# 参数在 profile 的 cordis.patch.yml 里按 id 覆盖（不要重复 insert，否则会插两遍）：
+#   - id: qq-gateway
+#     name: dsh-qq-gateway
+#     config:
+#       host: 0.0.0.0
+#       token: 换成随机串
+#       mainQQ: 10001
+#       botQQ: 10002
+#       sessionId: session-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# ============================================================================
+
+- insert:
+    - id: qq-gateway
+      name: dsh-qq-gateway
