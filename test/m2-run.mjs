@@ -390,7 +390,8 @@ async function scenarioOffline() {
 console.log('\n=== M2：有界队列溢出丢最旧 ===');
 
 async function scenarioOverflow() {
-  const env = await boot({ config: { maxQueue: 2, turnTimeoutMs: 8000 } });
+  // 2026-10-26 安全升级：这里只测队列溢出，显式关掉连发合并（默认 1500ms 会把同人连发并成一条）
+  const env = await boot({ config: { maxQueue: 2, turnTimeoutMs: 8000, burstMergeMs: 0 } });
   let nc = null;
   try {
     nc = await env.connect();
@@ -438,15 +439,24 @@ async function scenarioToken() {
   try {
     nc = await env.connect(TOKEN);
 
-    await check('token 轮换：旧 token 立刻 401，新 token 立刻可用', async () => {
+    await check('token 轮换：旧 token 立刻 401；单 peer 下新 token 要等旧连接断开', async () => {
       assert.equal(env.gw.setToken('m2-rotated'), 'm2-rotated');
       assert.equal(env.gw.counters.tokenRotations, 1);
       const bad = await expectReject({ url: env.url, token: TOKEN });
       assert.equal(bad.rejected, true, `旧 token 应被拒，实际 ${bad.reason}`);
       assert.match(bad.reason, /401/);
+      // 2026-10-26 安全升级：网关只保留一条 peer，旧连接还在时新 token 也连不进来
+      const blocked = await env.connect('m2-rotated');
+      await waitFor(() => blocked.closed === true, { label: 'second peer rejected' });
+      assert.equal(env.gw.status().peers, 1, '单 peer：旧连接不能被新连接替换');
+      assert.ok(env.gw.counters.extraPeers >= 1, '多余连接要被记账');
+      // 旧连接正常断开后，新 token 才能建立唯一的那条连接
+      await nc.close();
+      nc = null;
+      await waitFor(() => env.gw.status().peers === 0, { label: 'old peer gone' });
       nc2 = await env.connect('m2-rotated');
-      assert.equal(env.gw.status().peers, 2, '轮换只影响新握手，不掉已有连接');
-      return 'old → 401，new → 连上';
+      assert.equal(env.gw.status().peers, 1, '断开后新连接应成为唯一 peer');
+      return 'old → 401，单 peer 拒绝并发，断开后 new → 连上';
     });
 
     await check('轮换之后链路照常往返', async () => {
@@ -475,7 +485,12 @@ async function scenarioToken() {
       assert.equal(env2.gw.status().tokenConfigured, true);
       const bad = await expectReject({ url: env2.url, token: '' });
       assert.equal(bad.rejected, true, `setToken 之后无 token 必须被拒，实际 ${bad.reason}`);
+      // 单 peer：空 token 期间连着的那条要先断开，新 token 才能接管
+      await c1.close();
+      c1 = null;
+      await waitFor(() => env2.gw.status().peers === 0, { label: 'old peer gone (empty token)' });
       c2 = await env2.connect('fresh-token');
+      assert.equal(env2.gw.status().peers, 1);
       return 'warning + 轮换生效';
     });
   } finally {

@@ -205,7 +205,7 @@ try {
     const call = env.fake.calls.prompt[env.fake.calls.prompt.length - 1];
     const text = call.request.content.map((part) => part.text ?? '').join('\n');
     assert.match(text, /纯文字直接输出即可回传/);
-    assert.match(text, /避免重复发送/);
+    assert.match(text, /最终文字不再自动回传/);
     return 'prompt hint ok';
   });
 } finally {

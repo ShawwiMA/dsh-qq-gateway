@@ -122,9 +122,9 @@ console.log('=== M3：配置 Schema（纯逻辑） ===');
 
 await check('Schema：全部字段都有默认值，CONFIG_KEYS 与字段表一致', () => {
   const cfg = normalizeConfig({});
-  assert.equal(CONFIG_FIELDS.length, 46);
+  assert.equal(CONFIG_FIELDS.length, 60);
   assert.deepEqual(CONFIG_KEYS, CONFIG_FIELDS.map((f) => f.key));
-  assert.equal(CONFIG_KEYS.length, 46);
+  assert.equal(CONFIG_KEYS.length, 60);
   assert.deepEqual(cfg, defaultConfig());
   assert.equal(cfg.port, 8792);
   assert.equal(cfg.statusPort, 8793);

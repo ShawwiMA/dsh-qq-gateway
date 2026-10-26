@@ -28,6 +28,10 @@ const SUITES = [
   'markdown-image-check.mjs',
   'human-delay-check.mjs',
   'container-proxy-check.mjs',
+  // 安全升级（2026-10-26）：入站防护单测 / WS 握手与帧上限 / 端到端安全策略
+  'm9-guard.mjs',
+  'm9-ws-security.mjs',
+  'm9-security.mjs',
 ]
 
 const results = []

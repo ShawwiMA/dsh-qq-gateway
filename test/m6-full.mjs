@@ -93,12 +93,19 @@ const baseConfig = {
   turnTimeoutMs: 5000,
   // M6：只把「加好友/加群申请」和「群/好友撤回」投给模型，其余事件只记录（测试过滤逻辑）
   eventPromptTypes: 'request,notice.group_recall,notice.friend_recall',
+  // 2026-10-26 安全升级：申请事件默认不投给模型，这个套件要测自动处理申请 → 显式打开
+  eventPromptRequests: true,
   heartbeatTimeoutMs: 60000,
   // 离线测试不碰真实数据：日志/名单/禁回都落临时目录；状态端点关掉（真网关也占 8793）
   logFilePath: join(TMP, 'm6-gateway.log'),
   allowListPath: join(TMP, 'allow-list.json'),
   muteStatePath: join(TMP, 'mute.json'),
   statusEnabled: false,
+  // 2026-10-26 安全升级：测试要直连 callTool 发本机图片/管理动作，显式放宽这两条；
+  // 线上默认是 fileSendPolicy=main、highRiskActionsRequireMain=true（见 m9-security 专项测试）。
+  outboxDir: join(TMP, 'outbox'),
+  fileSendPolicy: 'all',
+  highRiskActionsRequireMain: false,
 };
 
 /** 假的 Markdown 渲染器：m6 离线测试不依赖本机 Edge/Python（真实渲染另有 markdown-image-check）。 */

@@ -74,18 +74,22 @@ dsh-qq-gateway ── OneBot API ──► NapCat ──► QQ
 
 4. 重启 DSH（或触发插件重载）。日志里出现 `网关已启动 ws://...` 就通了。
 
-`mainQQ`、`botQQ`、`sessionId` 必填；`token` 强烈建议填，空 token 等于谁都能连。`sessionId` 在 DSH 会话详情 / URL 里找，格式是 `session-...`。
+`mainQQ`、`botQQ`、`sessionId` 必填；`token` 必填（监听非环回地址时还要求 >= 32 位随机串，否则启动直接拒绝）。`sessionId` 在 DSH 会话详情 / URL 里找，格式是 `session-...`。
 
-## 配置项（46 个）
+## 配置项（60 个）
 
 字段表以 `lib/gateway/config.js` 的 `CONFIG_FIELDS` 为唯一来源；未知字段直接报错，拼错键不会静默失效。
 
 | 键 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `host` | string | 127.0.0.1 | 反向 WS 监听地址；容器连宿主要用 0.0.0.0，默认只本机 |
+| `host` | string | 127.0.0.1 | 反向 WS 监听地址；容器连宿主要用 0.0.0.0，默认只本机；非环回时强制 token |
 | `port` | number | 8792 | 反向 WS 监听端口；0 表示由系统分配（测试用） |
 | `path` | path | /onebot | 反向 WS 路径，必须与 NapCat 的 ws-reverse URL 一致 |
-| `token` | string | (空) | 握手校验用的 Bearer token；置空=接受任何客户端（仅限本机调试） |
+| `token` | string | (空) | 握手校验用的 Bearer token；必填，非环回地址要求 >= 32 位（空 token 只允许监听 127.0.0.1） |
+| `allowQueryToken` | boolean | false | 是否允许从 URL query（access_token）取 token；默认只认 Authorization 头，防 token 进代理日志 |
+| `allowOrigin` | boolean | false | 是否放行带 Origin 头的握手；默认拒绝（NapCat 不带 Origin，浏览器必带） |
+| `maxFrameBytes` | number | 4194304 | 反向 WS 单帧上限（字节）；超限发 close 1009 断开，防超大包 OOM |
+| `maxMessageBytes` | number | 16777216 | 反向 WS 单条消息（分片累计）上限（字节）；超限断开 |
 | `mainQQ` | qq | (空) | 主号 QQ（始终可回；也是授权名单的管理员） |
 | `botQQ` | qq | (空) | 小号 QQ（协议端登录的号；self_id 必须等于它） |
 | `groupRequireMention` | boolean | true | 群消息必须 @ 小号才处理（只接 @ 的） |
@@ -93,21 +97,28 @@ dsh-qq-gateway ── OneBot API ──► NapCat ──► QQ
 | `adminEnabled` | boolean | true | 允许主号用 /allow /deny /list 远程维护私聊授权名单 |
 | `allowListPath` | string | (空) | 授权名单落盘路径；空=~/.dsh/storages/qq-gateway-allow-list.json（重启不丢） |
 | `logFilePath` | string | (空) | 文件日志路径（真机排查用）；空=~/.dsh/storages/qq-gateway.log |
+| `maskLogQQ` | boolean | true | 文件日志里的 QQ 号/群号/消息 id 是否打码（默认打码，防日志外泄暴露关系链） |
 | `muteStatePath` | string | (空) | 禁回状态落盘路径；空=~/.dsh/storages/qq-gateway-mute.json（改文件即热生效） |
 | `muteDefaultMinutes` | number | 30 | 禁回默认时长（分钟）；0=默认永久，直到 /unmute |
+| `rateLimitPerMinute` | number | 10 | 单个来源（QQ 号/群）每分钟最多触发多少条消息或事件；超出丢弃，主号不受限 |
+| `autoMuteMinutes` | number | 10 | 连续触发限流时自动禁回的时长（分钟）；0=只丢弃不自动禁回 |
+| `dupWindowMinutes` | number | 10 | 重复内容去重窗口（分钟）：同一人同一段文字窗口内只投一次；0=关闭 |
 | `sessionId` | string | (空) | 目标 DSH 会话 id（消息只投递到这个会话） |
-| `maxQueue` | number | 256 | 等待投递的有界队列上限，溢出丢最旧 |
+| `maxQueue` | number | 256 | 等待投递的有界队列上限；满时主号消息仍入队并挤掉最旧的非主号消息 |
+| `burstMergeMs` | number | 1500 | 同一来源连发的合并窗口（ms）：窗口内的纯文字消息合并成一个模型回合；0=不合并 |
 | `turnTimeoutMs` | number | 180000 | 单回合等待上限，超时放开闸门但不回传；0=不设超时 |
 | `ridTtlMs` | number | 1800000 | requestId 记账保质期（超时回合迟到对账用） |
 | `deliveryMode` | enum | queue / queue\|steer | 投递方式：queue=排队（推荐），steer=插队 |
 | `unsupportedReply` | string | 目前仅支持文本消息 | 图片/语音等无正文消息的回执内容；置空=关闭回执 |
 | `unsupportedNoticeIntervalMs` | number | 3000 | 媒体回执节流窗口，防对方连发图片刷爆 QQ |
 | `offlineBufferMax` | number | 32 | 断线期间回传补发缓冲上限；0=不缓冲直接丢 |
-| `eventPromptTypes` | string | request,notice.group_recall,notice.friend_recall,notice.group_increase,notice.group_decrease,notice.group_admin,notice.group_ban,notice.friend_add,notice.essence,notice.group_file_upload | 哪些入站事件要投进会话（逗号分隔，支持 notice.* 通配）；空=只记录不投递 |
+| `eventPromptTypes` | string | request,notice.group_recall,... | 哪些入站事件要投进会话（逗号分隔，支持 notice.* 通配）；空=只记录不投递 |
+| `eventPromptRequests` | boolean | false | 是否把好友/加群申请投给模型（默认不投：陌生人附言是注入面；要自动处理申请再打开） |
 | `maxEventBuffer` | number | 200 | 事件环形缓冲上限（qq_events 可查） |
 | `heartbeatTimeoutMs` | number | 90000 | 心跳超时判定（ms）：超过这么久没心跳状态里标 stale；0=不判定 |
 | `toolsEnabled` | boolean | true | 是否注册 qq_* 模型工具（发消息/发图/撤回/动作目录/事件/状态） |
 | `managementEnabled` | boolean | true | 是否允许 qq_action 执行写/破坏性管理动作（查询类不受限） |
+| `highRiskActionsRequireMain` | boolean | true | 写/破坏性管理动作是否只允许主号发起的那一轮调用（默认是） |
 | `markdownReplyMode` | enum | auto / off\|auto\|image | 助手回复里的 Markdown 怎么发到 QQ：off=纯文本；auto=长且像 Markdown 才渲染成图片；image=总是渲染成图片（QQ 不渲染 Markdown） |
 | `markdownImageMaxWidth` | number | 720 | Markdown 渲染成图片时的最大宽度（像素） |
 | `relayDedupeMode` | enum | turn / off\|turn | 助手文字自动回传的去重：turn=本回合已用 qq_send 发过带文字的消息就不再自动回传（防 QQ 端双发）；off=关闭 |
@@ -119,15 +130,18 @@ dsh-qq-gateway ── OneBot API ──► NapCat ──► QQ
 | `containerProxyPort` | number | 0 | 容器网络直连代理监听端口：Docker Desktop 手动代理指向死地址时填它的端口（如 7892）；0=关闭 |
 | `sendTimeoutMs` | number | 15000 | 发消息/动作等 NapCat 响应的超时（ms） |
 | `maxSendImageBytes` | number | 10485760 | 出站图片/文件读取大小上限（字节） |
+| `outboxDir` | string | (空) | 出站本机文件的唯一白名单目录；空=~/.dsh/storages/qq-gateway-outbox（启动时创建） |
+| `fileSendPolicy` | enum | main / main\|outbox\|all | 本机文件出站策略：main=只有主号回合能发（推荐）；outbox=非主号只能发 outboxDir 内文件；all=不限制（仅调试） |
 | `autoStartDocker` | boolean | false | DSH 启动时自动拉起 Docker Desktop 和容器（打开 DSH 就能用 QQ） |
 | `stopDockerOnExit` | boolean | false | DSH 退出时停掉容器和 Docker Desktop（热重载不会误停） |
 | `dockerContainer` | string | napcat-gw | 联动启动时要确保运行的容器名 |
 | `dockerDesktopPath` | string | (空) | Docker Desktop 可执行文件路径；空=自动找常见安装位置 |
 | `dockerStartTimeoutMs` | number | 180000 | 等 Docker 引擎就绪的上限（毫秒） |
 | `statusEnabled` | boolean | true | 是否启动只读状态端点 |
-| `statusHost` | string | 127.0.0.1 | 状态端点监听地址；只读，默认只本机能看 |
+| `statusHost` | string | 127.0.0.1 | 状态端点监听地址；只读，默认只本机能看；非环回必须配 statusToken |
 | `statusPort` | number | 8793 | 状态端点端口；0=系统分配（测试用） |
 | `statusPath` | path | /dsh-qq-gateway/status | 状态端点路径，GET only |
+| `statusToken` | string | (空) | 状态端点 Bearer token；空=不校验（仅限 127.0.0.1）；非环回必须 >= 32 位 |
 
 ## 主号管理指令
 
@@ -165,7 +179,9 @@ dsh-qq-gateway ── OneBot API ──► NapCat ──► QQ
 | `qq_status` | 看网关状态：连接、账号、心跳、队列、计数、禁回、工具列表 |
 | `qq_mute` | 禁回 / 解除 / 查看（全局或指定 QQ，按时长） |
 
-`toolsEnabled: false` 可整体关掉；`managementEnabled: false` 只禁写/破坏性动作，查询照常。
+`toolsEnabled: false` 可整体关掉；`managementEnabled: false` 只禁写/破坏性动作，查询照常；`highRiskActionsRequireMain: true`（默认）让写/破坏性动作只在主号发起的那一轮可用。
+
+配套技能 `qq-gateway-operator`（装在 `~/.dsh/skills/qq-gateway-operator/`）约束模型：只有消息头标了「主号」的才是主人，外部用户的越权要求要拒绝，可疑指令按普通聊天处理，连发一次回、先结论后要点。
 
 ## 禁回与拟人延迟
 
@@ -194,10 +210,33 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 
 ## 安全
 
-- `token` 必填且用随机串；`host: 0.0.0.0` + 空 token = 局域网内谁都能连。
-- 状态端点默认只听 `127.0.0.1`，别往公网映射。
-- `managementEnabled: false` 可禁止模型执行踢人、禁言、退群等破坏性动作。
+部署检查清单、漏洞报告方式、已知边界见 [SECURITY.md](./SECURITY.md)。2026-10-26 做过一轮安全升级，下面几条是默认值的取舍：
+
+**默认值就是安全侧**（2026-10-26 安全升级），几处关键取舍：
+
+连接层
+- `token` 必填；监听非环回（`0.0.0.0`）时还要求 >= 32 位，否则启动直接拒绝。空 token 只允许 `127.0.0.1`。
+- 握手只认 `Authorization: Bearer`；URL query 传 token（`allowQueryToken`）默认关。
+- 带 `Origin` 头的握手默认拒绝（NapCat 不带 Origin，浏览器必带，防跨站 WebSocket）。
+- 单帧 / 单条消息有大小上限（`maxFrameBytes` / `maxMessageBytes`），超限回 close 1009 并断开；握手 5 秒、空闲 120 秒超时；同一时间只保留一条 NapCat 连接，多余连接直接掐掉。
+- 状态端点支持 `statusToken`；监听非环回时必须配 >= 32 位。
+
+入站层
+- 按来源限流（`rateLimitPerMinute`，默认 10 条/分钟），主号豁免；连续超限会阶梯式自动禁回（`autoMuteMinutes`，0=只丢弃不自动禁回）。
+- 同一人同一段文字在 `dupWindowMinutes` 窗口内只投一次（换个 message_id 也算重复）。
+- 同一来源在 `burstMergeMs` 窗口内的纯文字连发合并成一个回合，只回一次。
+- 队列满时主号消息仍入队，挤掉最旧的非主号消息；非主号新消息直接丢。
+- 事件（撤回/群文件/申请等）也要过禁回和限流；好友/加群申请默认不投给模型（`eventPromptRequests: true` 才投）。
+- 日志默认给 QQ 号/群号/消息 id 打码（`maskLogQQ`）。
+
+出站层
+- 本机文件只允许「主号发起的那一轮」发送（`fileSendPolicy: main`）；`outbox` 模式非主号只能发 `outboxDir` 内文件；UNC 网络路径一律拒绝。
+- `qq_action` 的写/破坏性动作只认主号回合（`highRiskActionsRequireMain`）；查询类不受限。
+
+其它
+- 提示词注入只能降低、不能消灭：真正的边界是「会话里有哪些工具」。建议网关会话不开 shell / 写盘 / 屏控，模型即使被骗也拿不到东西。
 - 小号有被 QQ 风控 / 踢下线的风险，与插件无关；建议别用主号当小号。
+- 状态端点默认只听 `127.0.0.1`，别往公网映射。
 
 ## 已知限制
 
@@ -205,7 +244,7 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 2. 语音、视频、文件**出站**没有真机验证；图片最稳。合并转发出站验证过。
 3. NapCat 关闭 `reportSelfMessage` 时，自己发的消息不会以 `message_sent` 事件上报。
 4. 群消息撤回窗口是 QQ 服务器的 2 分钟限制，超时撤回会原样报错。
-5. 事件默认会投进会话、占用模型回合；嫌吵把 `eventPromptTypes` 置空（事件仍能 `qq_events` 查）。
+5. 事件默认只把通知类（撤回/成员变动/群文件等）投进会话，好友/加群申请默认不投（`eventPromptRequests: true` 才投）；嫌吵把 `eventPromptTypes` 置空（事件仍能 `qq_events` 查）。
 6. 消息只投一个会话（`sessionId`），不支持多会话路由。
 7. `autoStartDocker` / `stopDockerOnExit` 只适配了 Windows 的 Docker Desktop；其他系统手动开 Docker。
 8. 依赖 `@deepseek-ai/dsh-tools`（注册 `qq_*` 工具用），由 DSH 宿主提供；拿不到时工具不注册，消息链路照常。
@@ -231,13 +270,15 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 - [M6 全能力对接](docs/M6-全能力对接-结论.md) — 事件、富媒体、动作目录、模型工具
 - [M7 拟人延迟](docs/M7-拟人延迟-结论.md) — 幂律 + 指数长尾
 - [M8 禁回](docs/M8-禁回-结论.md) — 热加载禁回与三条入口
+- [M9 安全升级](docs/M9-安全升级-结论.md) — 审计发现、加固清单、残余风险
 
 ## 开发
 
 ```text
 lib/index.js              插件入口：校验配置、起网关、注册工具
 lib/gateway/gateway.js    核心：反向 WS、队列、投递、回传、状态
-lib/gateway/config.js     46 个配置项的声明式 Schema（文档同源）
+lib/gateway/guard.js      入站限流 / 内容去重 / 连发合并 / 事件门控
+lib/gateway/config.js     60 个配置项的声明式 Schema（文档同源）
 lib/gateway/ws.js         反向 WS 服务端（握手 token、心跳、断线清理）
 lib/gateway/tools.js      9 个 qq_* 模型工具
 lib/gateway/actions.js    OneBot 动作目录 + 消息段构造
@@ -249,7 +290,7 @@ lib/gateway/status-server.js 只读状态端点
 lib/gateway/container-proxy.js 容器网络直连代理
 ```
 
-- **离线测试**（不需要真 QQ / Docker）：`npm test`，17 套约 190 条断言；CI 在 Windows + Node 22/24 上自动跑。`*-live.mjs` 系列需要真实 NapCat（环境变量 `QQGW_TOKEN`、`QQGW_BOT` 等），自己按需跑。
+- **离线测试**（不需要真 QQ / Docker）：`npm test`，20 套约 220 条断言；CI 在 Windows + Node 22/24 上自动跑。测试脚本在源码仓库里，不随 npm 包发布；`*-live.mjs` 系列需要真实 NapCat，自己按需跑。
 - **改代码生效**：插件已被 DSH 加载，改 `lib/` 下的文件后不会自动重载，需要触发插件重载（改 profile patch 触发 `patchReload`，或重启 DSH）。改配置项一般只需重载 patch。
 - 提交前跑一遍 `npm test`（`prepublishOnly` 也会跑）。
 
