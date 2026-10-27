@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.3 — 2026-10-27
+
+媒体 URL 协议与权限校验（插件收录评审 #99 复核意见）。详见 [docs/M10-媒体URL校验-结论.md](docs/M10-媒体URL校验-结论.md)。
+
+- 媒体段的 `url` 只接受 http/https：`file://`、`data:`、`base64://`、`ftp://`、UNC 等一律拒绝，堵住「非主号用 url 绕过文件发送限制」
+- `mface.url`、`share.url` 同规则校验
+- `qq_notice` 与 `qq_action` 同权限：写动作只认主号回合；公告图片只收 http(s) URL
+- 新增 `test/m10-media-url.mjs`（7 条断言），共 21 套离线套件全绿
+
 ## 1.0.2 — 2026-10-26
 
 安全升级（不改消息收发语义）。审计发现、加固清单与残余风险见 [docs/M9-安全升级-结论.md](docs/M9-安全升级-结论.md)。

@@ -231,7 +231,8 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 
 出站层
 - 本机文件只允许「主号发起的那一轮」发送（`fileSendPolicy: main`）；`outbox` 模式非主号只能发 `outboxDir` 内文件；UNC 网络路径一律拒绝。
-- `qq_action` 的写/破坏性动作只认主号回合（`highRiskActionsRequireMain`）；查询类不受限。
+- 媒体 `url` 只接受 `http(s)`：`file://`、`data:`、`base64://`、UNC 等一律拒绝（`mface` / `share` 段同规则），防止把本机文件包成 URL 绕过权限。
+- `qq_action` 与 `qq_notice` 的写/破坏性动作只认主号回合（`highRiskActionsRequireMain`）；公告图片只收 http(s) URL；查询类不受限。
 
 其它
 - 提示词注入只能降低、不能消灭：真正的边界是「会话里有哪些工具」。建议网关会话不开 shell / 写盘 / 屏控，模型即使被骗也拿不到东西。
@@ -271,6 +272,7 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 - [M7 拟人延迟](docs/M7-拟人延迟-结论.md) — 幂律 + 指数长尾
 - [M8 禁回](docs/M8-禁回-结论.md) — 热加载禁回与三条入口
 - [M9 安全升级](docs/M9-安全升级-结论.md) — 审计发现、加固清单、残余风险
+- [M10 媒体 URL 校验](docs/M10-媒体URL校验-结论.md) — 协议白名单与工具权限（评审补充）
 
 ## 开发
 
@@ -290,7 +292,7 @@ lib/gateway/status-server.js 只读状态端点
 lib/gateway/container-proxy.js 容器网络直连代理
 ```
 
-- **离线测试**（不需要真 QQ / Docker）：`npm test`，20 套约 220 条断言；CI 在 Windows + Node 22/24 上自动跑。测试脚本在源码仓库里，不随 npm 包发布；`*-live.mjs` 系列需要真实 NapCat，自己按需跑。
+- **离线测试**（不需要真 QQ / Docker）：`npm test`，21 套约 230 条断言；CI 在 Windows + Node 22/24 上自动跑。测试脚本在源码仓库里，不随 npm 包发布；`*-live.mjs` 系列需要真实 NapCat，自己按需跑。
 - **改代码生效**：插件已被 DSH 加载，改 `lib/` 下的文件后不会自动重载，需要触发插件重载（改 profile patch 触发 `patchReload`，或重启 DSH）。改配置项一般只需重载 patch。
 - 提交前跑一遍 `npm test`（`prepublishOnly` 也会跑）。
 

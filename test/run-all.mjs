@@ -32,6 +32,8 @@ const SUITES = [
   'm9-guard.mjs',
   'm9-ws-security.mjs',
   'm9-security.mjs',
+  // 2026-10-27 评审补充：媒体 url 协议与权限校验
+  'm10-media-url.mjs',
 ]
 
 const results = []
