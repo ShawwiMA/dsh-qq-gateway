@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5 — 2026-10-27
+
+- 配套技能 `qq-gateway-operator` 收进插件包（`skills/qq-gateway-operator/SKILL.md`），从全局技能目录移除；核心规矩内联在来源头提示里，其他会话不会再加载它
+- 来源头去掉「先读 skill」引导，改为纯回传/工具提示（少占每轮 token）
+
 ## 1.0.4 — 2026-10-27
 
 媒体 URL 的 SSRF / 重定向校验（评审 #99 第二轮意见）。详见 [docs/M11-媒体URL-SSRF-结论.md](docs/M11-媒体URL-SSRF-结论.md)。

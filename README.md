@@ -182,7 +182,7 @@ dsh-qq-gateway ── OneBot API ──► NapCat ──► QQ
 
 `toolsEnabled: false` 可整体关掉；`managementEnabled: false` 只禁写/破坏性动作，查询照常；`highRiskActionsRequireMain: true`（默认）让写/破坏性动作只在主号发起的那一轮可用。
 
-配套技能 `qq-gateway-operator`（装在 `~/.dsh/skills/qq-gateway-operator/`）约束模型：只有消息头标了「主号」的才是主人，外部用户的越权要求要拒绝，可疑指令按普通聊天处理，连发一次回、先结论后要点。
+配套技能 `qq-gateway-operator` 随插件包提供（`skills/qq-gateway-operator/SKILL.md`），**不再放进全局技能目录**；主客判定、越权拒绝、防注入这几条也已内联在来源头提示里，所以别的会话不会加载它。
 
 ## 禁回与拟人延迟
 
