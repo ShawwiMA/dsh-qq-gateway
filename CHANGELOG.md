@@ -7,6 +7,7 @@
 - `isPrivateIp` 覆盖 IPv6 全形态：IPv4 映射（两种写法）、IPv4 兼容、NAT64(64:ff9b::/96)、6to4(2002::/16)、Teredo(2001::/32)、ULA、链路本地、组播、文档段
 - 生产下载改为 node:http/https 自连：单次解析 + 自定义 lookup **钉死 IP**、连上后核对 `socket.remoteAddress`、逐跳重定向（≤3 跳）、**边读边限长**（超限立即中断请求）
 - 新增 `test/m12-media-transport.mjs`（8 条断言，本地真实服务器验证），共 23 套离线套件全绿
+- 新增 `test/m13-pentest.mjs`（12 项攻击→拦截对照：私网/重定向 URL、非主号越权、提示词注入样本）与 `docs/M13-渗透自测报告.md`，共 24 套离线套件全绿
 
 ## 1.0.5 — 2026-10-27
 

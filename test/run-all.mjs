@@ -38,6 +38,8 @@ const SUITES = [
   'm11-media-ssrf.mjs',
   // 2026-10-27 评审第三轮：IPv6 全形态 + 实际连接地址 + 流式限长
   'm12-media-transport.mjs',
+  // 2026-10-27 渗透自测：私网/重定向 URL、非主号越权、提示词注入样本（攻击→拦截对照）
+  'm13-pentest.mjs',
 ]
 
 const results = []

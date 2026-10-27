@@ -278,6 +278,7 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 - [M10 媒体 URL 校验](docs/M10-媒体URL校验-结论.md) — 协议白名单与工具权限（评审补充）
 - [M11 媒体 URL SSRF 校验](docs/M11-媒体URL-SSRF-结论.md) — 目标地址、DNS、重定向与代下载
 - [M12 媒体下载传输层](docs/M12-媒体下载传输层-结论.md) — IPv6 全形态、钉 IP、实际地址核对、流式限长
+- [M13 渗透自测报告](docs/M13-渗透自测报告.md) — 私网/重定向 URL、非主号越权、提示词注入的攻击→拦截对照
 
 ## 开发
 
@@ -297,7 +298,7 @@ lib/gateway/status-server.js 只读状态端点
 lib/gateway/container-proxy.js 容器网络直连代理
 ```
 
-- **离线测试**（不需要真 QQ / Docker）：`npm test`，23 套约 250 条断言；CI 在 Windows + Node 22/24 上自动跑。测试脚本在源码仓库里，不随 npm 包发布；`*-live.mjs` 系列需要真实 NapCat，自己按需跑。
+- **离线测试**（不需要真 QQ / Docker）：`npm test`，24 套约 260 条断言；CI 在 Windows + Node 22/24 上自动跑。测试脚本在源码仓库里，不随 npm 包发布；`*-live.mjs` 系列需要真实 NapCat，自己按需跑。
 - **改代码生效**：插件已被 DSH 加载，改 `lib/` 下的文件后不会自动重载，需要触发插件重载（改 profile patch 触发 `patchReload`，或重启 DSH）。改配置项一般只需重载 patch。
 - 提交前跑一遍 `npm test`（`prepublishOnly` 也会跑）。
 
