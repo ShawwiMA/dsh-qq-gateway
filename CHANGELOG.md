@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.6 — 2026-10-27
+
+媒体下载传输层补齐（评审 #99 第三轮意见）。详见 [docs/M12-媒体下载传输层-结论.md](docs/M12-媒体下载传输层-结论.md)。
+
+- `isPrivateIp` 覆盖 IPv6 全形态：IPv4 映射（两种写法）、IPv4 兼容、NAT64(64:ff9b::/96)、6to4(2002::/16)、Teredo(2001::/32)、ULA、链路本地、组播、文档段
+- 生产下载改为 node:http/https 自连：单次解析 + 自定义 lookup **钉死 IP**、连上后核对 `socket.remoteAddress`、逐跳重定向（≤3 跳）、**边读边限长**（超限立即中断请求）
+- 新增 `test/m12-media-transport.mjs`（8 条断言，本地真实服务器验证），共 23 套离线套件全绿
+
 ## 1.0.5 — 2026-10-27
 
 - 配套技能 `qq-gateway-operator` 收进插件包（`skills/qq-gateway-operator/SKILL.md`），从全局技能目录移除；核心规矩内联在来源头提示里，其他会话不会再加载它

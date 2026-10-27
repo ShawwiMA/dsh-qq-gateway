@@ -36,6 +36,8 @@ const SUITES = [
   'm10-media-url.mjs',
   // 2026-10-27 评审第二轮：媒体 url 的 SSRF / 重定向校验
   'm11-media-ssrf.mjs',
+  // 2026-10-27 评审第三轮：IPv6 全形态 + 实际连接地址 + 流式限长
+  'm12-media-transport.mjs',
 ]
 
 const results = []

@@ -1,6 +1,6 @@
 {
   "name": "dsh-qq-gateway",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "QQ 消息网关：NapCat / OneBot 11 收 QQ 消息投给 DSH 会话，助手回复自动回传 QQ；附带 qq_* 模型工具、主号管理指令、拟人延迟与禁回。",
   "type": "module",
   "main": "lib/index.js",
