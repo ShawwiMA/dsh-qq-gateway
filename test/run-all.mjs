@@ -40,6 +40,8 @@ const SUITES = [
   'm12-media-transport.mjs',
   // 2026-10-27 渗透自测：私网/重定向 URL、非主号越权、提示词注入样本（攻击→拦截对照）
   'm13-pentest.mjs',
+  // 2026-10-27 评审第四轮：真网关生产调用链（不注入 fetch）+ 6to4 内嵌 IPv4 回归
+  'm14-production-chain.mjs',
 ]
 
 const results = []
