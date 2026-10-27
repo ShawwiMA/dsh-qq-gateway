@@ -93,7 +93,8 @@ const gw = createGateway({
   ctx: fake.ctx,
   config: cfgBase,
   logger: (m) => logs.push(m),
-  deps: { fetchImpl: fakeFetch, imageTimeoutMs: 400 },
+  // 2026-10-27：媒体 URL 现在要过 SSRF 校验，测试域名注入假 DNS 避免真解析
+  deps: { fetchImpl: fakeFetch, imageTimeoutMs: 400, resolveHost: async () => ['93.184.216.34'] },
 });
 await gw.start();
 const url = `ws://127.0.0.1:${gw.port()}${PATH}`;
@@ -154,7 +155,7 @@ await check('sniffMediaType：png/jpeg/gif/webp 认得出', () => {
 console.log('\n=== M4.1：图片真正投进会话 ===');
 
 await check('纯图片：下载 url → 宿主收到 image 内容块（不是「不支持」回执）', async () => {
-  nc.sendImageOnly({ messageId: 3001, file: 'pic.png', url: 'https://fake.local/img/pic.png' });
+  nc.sendImageOnly({ messageId: 3001, file: 'pic.png', url: 'https://img.example.com/img/pic.png' });
   const call = await nextPrompt('image prompt');
   assert.equal(call.request.content.length, 2, '来源说明 + 图片两个块');
   assert.match(call.request.content[0].text, /^【QQ私聊】主号：/);
@@ -174,7 +175,7 @@ await check('纯图片：下载 url → 宿主收到 image 内容块（不是「
 
 await check('文本+图片：两个内容块按顺序投递，回传正常', async () => {
   const before = fake.calls.prompt.length;
-  nc.sendMixed({ text: '这张图是什么', messageId: 3002, file: 'pic.png', url: 'https://fake.local/img/pic.png' });
+  nc.sendMixed({ text: '这张图是什么', messageId: 3002, file: 'pic.png', url: 'https://img.example.com/img/pic.png' });
   await waitFor(() => fake.calls.prompt.length === before + 1, { label: 'mixed prompt' });
   const content = fake.calls.prompt[before].request.content;
   assert.deepEqual(content.map((p) => p.type), ['text', 'image']);
@@ -207,7 +208,7 @@ console.log('\n=== M4.1：失败路径（不静默） ===');
 await check('图片下载失败且没有正文：回主号「图片没能接收」，不投宿主、不占闸门', async () => {
   const promptsBefore = fake.calls.prompt.length;
   const repliesBefore = nc.replies().length;
-  nc.sendImageOnly({ messageId: 3004, file: 'broken.jpg', url: 'https://fake.local/broken.jpg' });
+  nc.sendImageOnly({ messageId: 3004, file: 'broken.jpg', url: 'https://img.example.com/broken.jpg' });
   await waitFor(() => nc.replies().length === repliesBefore + 1, { label: 'failure notice' });
   const notice = nc.replies()[repliesBefore];
   assert.equal(notice.params.message, '图片没能接收（下载失败），重发一次或改发文字吧');
@@ -220,7 +221,7 @@ await check('图片下载失败且没有正文：回主号「图片没能接收�
 await check('图片失败但有正文：正文照投，不额外刷回执', async () => {
   const before = fake.calls.prompt.length;
   const repliesBefore = nc.replies().length;
-  nc.sendMixed({ text: '虽然图挂了但文字还在', messageId: 3005, file: 'broken.jpg', url: 'https://fake.local/broken.jpg' });
+  nc.sendMixed({ text: '虽然图挂了但文字还在', messageId: 3005, file: 'broken.jpg', url: 'https://img.example.com/broken.jpg' });
   await waitFor(() => fake.calls.prompt.length === before + 1, { label: 'text-only prompt' });
   assert.equal(fake.calls.prompt[before].request.content.length, 1);
   assert.equal(bodyOf(fake.calls.prompt[before].request.content), '虽然图挂了但文字还在');

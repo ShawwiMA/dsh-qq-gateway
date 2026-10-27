@@ -56,9 +56,9 @@ const node = (who, ...segs) => ({ sender: { nickname: who }, message: segs });
 
 const NODES_MIX = [
   node('小明', text('第一条')),
-  node('群友甲', text('看这个'), img('https://fake.local/pic1.png'), img('https://fake.local/pic2.png')),
-  node('小红', img('https://fake.local/pic3.png')),
-  node('小红', img('https://fake.local/pic4.png')),
+  node('群友甲', text('看这个'), img('https://img.example.com/pic1.png'), img('https://img.example.com/pic2.png')),
+  node('小红', img('https://img.example.com/pic3.png')),
+  node('小红', img('https://img.example.com/pic4.png')),
 ];
 
 console.log('=== M6.7：转发节点图片编号收集（纯逻辑） ===');
@@ -68,9 +68,9 @@ await check('formatForwardNodes(maxImages=3)：图片编号 [图片1..3]，带�
   assert.equal(out.text, '1. 小明：第一条\n2. 群友甲：看这个[图片1][图片2]\n3. 小红：[图片3]\n4. 小红：[图片]');
   assert.equal(out.images.length, 3);
   assert.deepEqual(out.images.map((i) => [i.label, i.nodeIndex, i.who, i.url]), [
-    ['图片1', 2, '群友甲', 'https://fake.local/pic1.png'],
-    ['图片2', 2, '群友甲', 'https://fake.local/pic2.png'],
-    ['图片3', 3, '小红', 'https://fake.local/pic3.png'],
+    ['图片1', 2, '群友甲', 'https://img.example.com/pic1.png'],
+    ['图片2', 2, '群友甲', 'https://img.example.com/pic2.png'],
+    ['图片3', 3, '小红', 'https://img.example.com/pic3.png'],
   ]);
 });
 
@@ -81,7 +81,7 @@ await check('maxImages=0（默认）：保持旧的 [图片] 标签，不收集'
 });
 
 await check('截断/超上限时：只收集展示出来的节点、单段最多 maxImages 张', () => {
-  const many = Array.from({ length: 12 }, (_, i) => node(`人${i + 1}`, img(`https://fake.local/m${i + 1}.png`)));
+  const many = Array.from({ length: 12 }, (_, i) => node(`人${i + 1}`, img(`https://img.example.com/m${i + 1}.png`)));
   const capped = formatForwardNodes(many, { maxImages: 9 });
   assert.equal(capped.images.length, 9);
   assert.match(capped.text, /9\. 人9：\[图片9\]\n10\. 人10：\[图片\]/);
@@ -109,7 +109,8 @@ const gw = createGateway({
     sessionId: SESSION, maxQueue: 8, turnTimeoutMs: 5000, ridTtlMs: 30 * 60 * 1000, replyDelayMode: 'off',
   },
   logger: (m) => logs.push(m),
-  deps: { fetchImpl: fakeFetch, imageTimeoutMs: 500 },
+  // 2026-10-27：媒体 URL 现在要过 SSRF 校验，测试域名注入假 DNS 避免真解析
+  deps: { fetchImpl: fakeFetch, imageTimeoutMs: 500, resolveHost: async () => ['93.184.216.34'] },
 });
 await gw.start();
 const url = `ws://127.0.0.1:${gw.port()}${PATH}`;
@@ -146,14 +147,14 @@ await check('转发含 4 张图：正文编号 + 映射说明 + 4 个 image 内�
     assert.equal(part.mediaType, 'image/png');
     assert.ok(part.data.length > 50, 'base64 图片字节要真填进去');
   }
-  assert.equal(fetched.filter((u) => u.includes('fake.local/pic')).length, 4, '4 张都要走下载');
+  assert.equal(fetched.filter((u) => u.includes('img.example.com/pic')).length, 4, '4 张都要走下载');
   assert.equal(gw.counters.forwardImages, 4);
   assert.equal(gw.counters.forwardImageFailures, 0);
   assert.ok(logs.some((m) => /forward image resolved \(图片4, node=4/.test(m)), '日志要有每张图的解析结果');
 });
 
 await check('图片下载失败：占位说明写清哪张失败，正文照常投递，不算整条失败', async () => {
-  const nodes = [node('小明', text('看这个'), img('https://fake.local/broken.png')), node('小红', text('好'))];
+  const nodes = [node('小明', text('看这个'), img('https://img.example.com/broken.png')), node('小红', text('好'))];
   const content = await sendForward({ id: 'FWD-BROKEN', nodes });
   const types = content.map((p) => p.type);
   assert.deepEqual(types, ['text', 'text', 'text', 'text'], '映射 + 失败占位都是文本，没有 image 块');
@@ -165,7 +166,7 @@ await check('图片下载失败：占位说明写清哪张失败，正文照常�
 });
 
 await check('一段转发 12 张图：只下载前 9 张，剩下的保留 [图片] 标签', async () => {
-  const nodes = Array.from({ length: 12 }, (_, i) => node(`人${i + 1}`, img(`https://fake.local/cap${i + 1}.png`)));
+  const nodes = Array.from({ length: 12 }, (_, i) => node(`人${i + 1}`, img(`https://img.example.com/cap${i + 1}.png`)));
   const content = await sendForward({ id: 'FWD-CAP', nodes });
   const images = content.filter((p) => p.type === 'image');
   assert.equal(images.length, 9);
@@ -177,11 +178,11 @@ await check('一段转发 12 张图：只下载前 9 张，剩下的保留 [图�
 await check('文字 + 转发（含图）：来源说明只加一次，直发图和转发图都在', async () => {
   messageId += 1;
   const before = fake.calls.prompt.length;
-  const nodes = [node('小红', img('https://fake.local/inline1.png'))];
+  const nodes = [node('小红', img('https://img.example.com/inline1.png'))];
   nc.sendSegments({
     segments: [
       text('帮我看看聊天记录'),
-      img('https://fake.local/direct.png'),
+      img('https://img.example.com/direct.png'),
       { type: 'forward', data: { id: 'FWD-MIX' } },
     ],
     messageId,
@@ -205,7 +206,7 @@ await check('inline 展开（data.content）：不额外调 get_forward_msg，�
   const before = fake.calls.prompt.length;
   const actionsBefore = nc.actions.filter((a) => a.action === 'get_forward_msg').length;
   nc.sendSegments({
-    segments: [{ type: 'forward', data: { content: [node('小明', text('看图'), img('https://fake.local/inline2.png'))] } }],
+    segments: [{ type: 'forward', data: { content: [node('小明', text('看图'), img('https://img.example.com/inline2.png'))] } }],
     messageId,
   });
   await waitFor(() => fake.calls.prompt.length === before + 1, { label: 'inline prompt' });

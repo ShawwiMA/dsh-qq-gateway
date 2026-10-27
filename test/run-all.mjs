@@ -34,6 +34,8 @@ const SUITES = [
   'm9-security.mjs',
   // 2026-10-27 评审补充：媒体 url 协议与权限校验
   'm10-media-url.mjs',
+  // 2026-10-27 评审第二轮：媒体 url 的 SSRF / 重定向校验
+  'm11-media-ssrf.mjs',
 ]
 
 const results = []

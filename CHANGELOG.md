@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.4 — 2026-10-27
+
+媒体 URL 的 SSRF / 重定向校验（评审 #99 第二轮意见）。详见 [docs/M11-媒体URL-SSRF-结论.md](docs/M11-媒体URL-SSRF-结论.md)。
+
+- 新增 `url-guard.js`：媒体 URL 校验协议、目标地址（私网/回环/链路本地/CGNAT/本机名/解析到内网的域名）、逐跳重定向、大小与跳数上限
+- 非主号回合的图片 URL 改由网关自己下载（逐跳校验）再转 base64 交给 NapCat，协议端不再替外部用户访问本机/内网；语音/视频/文件 URL 对非主号直接拒绝
+- `mface.url`、`qq_notice` 图片同样走地址校验；入站图片下载也走同一套 `safeFetchMedia`
+- 新增配置 `mediaUrlAllowPrivate`（默认 false，共 61 项）
+- 新增 `test/m11-media-ssrf.mjs`（8 条断言），共 22 套离线套件全绿
+
 ## 1.0.3 — 2026-10-27
 
 媒体 URL 协议与权限校验（插件收录评审 #99 复核意见）。详见 [docs/M10-媒体URL校验-结论.md](docs/M10-媒体URL校验-结论.md)。

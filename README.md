@@ -76,7 +76,7 @@ dsh-qq-gateway ── OneBot API ──► NapCat ──► QQ
 
 `mainQQ`、`botQQ`、`sessionId` 必填；`token` 必填（监听非环回地址时还要求 >= 32 位随机串，否则启动直接拒绝）。`sessionId` 在 DSH 会话详情 / URL 里找，格式是 `session-...`。
 
-## 配置项（60 个）
+## 配置项（61 个）
 
 字段表以 `lib/gateway/config.js` 的 `CONFIG_FIELDS` 为唯一来源；未知字段直接报错，拼错键不会静默失效。
 
@@ -142,6 +142,7 @@ dsh-qq-gateway ── OneBot API ──► NapCat ──► QQ
 | `statusPort` | number | 8793 | 状态端点端口；0=系统分配（测试用） |
 | `statusPath` | path | /dsh-qq-gateway/status | 状态端点路径，GET only |
 | `statusToken` | string | (空) | 状态端点 Bearer token；空=不校验（仅限 127.0.0.1）；非环回必须 >= 32 位 |
+| `mediaUrlAllowPrivate` | boolean | false | 是否允许媒体 URL 指向本机/内网地址（默认禁，防 SSRF；仅调试用） |
 
 ## 主号管理指令
 
@@ -232,6 +233,7 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 出站层
 - 本机文件只允许「主号发起的那一轮」发送（`fileSendPolicy: main`）；`outbox` 模式非主号只能发 `outboxDir` 内文件；UNC 网络路径一律拒绝。
 - 媒体 `url` 只接受 `http(s)`：`file://`、`data:`、`base64://`、UNC 等一律拒绝（`mface` / `share` 段同规则），防止把本机文件包成 URL 绕过权限。
+- 媒体 URL 的**目标地址**也校验：私网、回环、链路本地、`localhost` / `host.docker.internal` 等本机名、解析到内网的域名一律拒绝；非主号回合的 URL 由网关自己逐跳校验重定向后下载，再转 base64 交给 NapCat（`mediaUrlAllowPrivate` 可放开，仅调试）。
 - `qq_action` 与 `qq_notice` 的写/破坏性动作只认主号回合（`highRiskActionsRequireMain`）；公告图片只收 http(s) URL；查询类不受限。
 
 其它
@@ -273,6 +275,7 @@ curl -s http://127.0.0.1:8793/dsh-qq-gateway/status
 - [M8 禁回](docs/M8-禁回-结论.md) — 热加载禁回与三条入口
 - [M9 安全升级](docs/M9-安全升级-结论.md) — 审计发现、加固清单、残余风险
 - [M10 媒体 URL 校验](docs/M10-媒体URL校验-结论.md) — 协议白名单与工具权限（评审补充）
+- [M11 媒体 URL SSRF 校验](docs/M11-媒体URL-SSRF-结论.md) — 目标地址、DNS、重定向与代下载
 
 ## 开发
 
@@ -292,7 +295,7 @@ lib/gateway/status-server.js 只读状态端点
 lib/gateway/container-proxy.js 容器网络直连代理
 ```
 
-- **离线测试**（不需要真 QQ / Docker）：`npm test`，21 套约 230 条断言；CI 在 Windows + Node 22/24 上自动跑。测试脚本在源码仓库里，不随 npm 包发布；`*-live.mjs` 系列需要真实 NapCat，自己按需跑。
+- **离线测试**（不需要真 QQ / Docker）：`npm test`，22 套约 240 条断言；CI 在 Windows + Node 22/24 上自动跑。测试脚本在源码仓库里，不随 npm 包发布；`*-live.mjs` 系列需要真实 NapCat，自己按需跑。
 - **改代码生效**：插件已被 DSH 加载，改 `lib/` 下的文件后不会自动重载，需要触发插件重载（改 profile patch 触发 `patchReload`，或重启 DSH）。改配置项一般只需重载 patch。
 - 提交前跑一遍 `npm test`（`prepublishOnly` 也会跑）。
 
